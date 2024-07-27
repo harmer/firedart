@@ -16,6 +16,8 @@ class FirestoreGateway {
 
   final String database;
 
+  final String googParams;
+
   final Map<String, _ListenStreamWrapper> _listenStreamCache;
 
   late FirestoreClient _client;
@@ -30,6 +32,7 @@ class FirestoreGateway {
   })  : _authenticator = authenticator,
         database =
             'projects/$projectId/databases/${databaseId ?? '(default)'}/documents',
+        googParams = 'project_id=$projectId&database_id=$databaseId',
         _listenStreamCache = <String, _ListenStreamWrapper>{} {
     _setupClient(emulator: emulator);
   }
@@ -86,8 +89,11 @@ class FirestoreGateway {
       ..documentId = documentId ?? ''
       ..document = document;
 
-    var response =
-        await _client.createDocument(request).catchError(_handleError);
+    var response = await _client
+        .createDocument(request,
+            options:
+                CallOptions(metadata: {"x-goog-request-params": googParams}))
+        .catchError(_handleError);
     return Document(this, response);
   }
 
@@ -110,7 +116,11 @@ class FirestoreGateway {
       request.updateMask = mask;
     }
 
-    await _client.updateDocument(request).catchError(_handleError);
+    await _client
+        .updateDocument(request,
+            options:
+                CallOptions(metadata: {"x-goog-request-params": googParams}))
+        .catchError(_handleError);
   }
 
   Future<void> deleteDocument(String path) => _client
