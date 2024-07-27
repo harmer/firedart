@@ -112,7 +112,7 @@ class CollectionReference extends Reference {
           {int pageSize = 1024, String nextPageToken = ''}) =>
       _gateway.getCollection(fullPath, pageSize, nextPageToken);
 
-  Stream<List<Document>> get stream => _gateway.streamCollection(fullPath);
+  Stream<DocumentUpdate> get stream => _gateway.streamCollection(fullPath);
 
   /// Create a document with a random id.
   Future<Document> add(Map<String, dynamic> map) =>
@@ -133,10 +133,7 @@ class DocumentReference extends Reference {
 
   Future<Document> get() => _gateway.getDocument(fullPath);
 
-  @Deprecated('Use the stream getter instead')
-  Stream<Document?> subscribe() => stream;
-
-  Stream<Document?> get stream => _gateway.streamDocument(fullPath);
+  Stream<DocumentUpdate> get stream => _gateway.streamDocument(fullPath);
 
   /// Check if a document exists.
   Future<bool> get exists async {
@@ -226,6 +223,16 @@ class GeoPoint {
 
   @override
   int get hashCode => latitude.hashCode ^ longitude.hashCode;
+}
+
+enum DocumentAction { modify, delete }
+
+class DocumentUpdate {
+  final DocumentAction action;
+  final Document? document;
+  final String? deletedDocumentId;
+
+  DocumentUpdate(this.action, this.document, this.deletedDocumentId);
 }
 
 class Page<T> extends ListBase<T> {

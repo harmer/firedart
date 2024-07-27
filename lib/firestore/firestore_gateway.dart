@@ -51,7 +51,7 @@ class FirestoreGateway {
     return Page(documents, response.nextPageToken);
   }
 
-  Stream<List<Document>> streamCollection(String path) {
+  Stream<DocumentUpdate> streamCollection(String path) {
     if (_listenStreamCache.containsKey(path)) {
       return _mapCollectionStream(_listenStreamCache[path]!);
     }
@@ -92,7 +92,7 @@ class FirestoreGateway {
     var response = await _client
         .createDocument(request,
             options:
-                CallOptions(metadata: {"x-goog-request-params": googParams}))
+                CallOptions(metadata: {'x-goog-request-params': googParams}))
         .catchError(_handleError);
     return Document(this, response);
   }
@@ -119,7 +119,7 @@ class FirestoreGateway {
     await _client
         .updateDocument(request,
             options:
-                CallOptions(metadata: {"x-goog-request-params": googParams}))
+                CallOptions(metadata: {'x-goog-request-params': googParams}))
         .catchError(_handleError);
   }
 
@@ -127,7 +127,7 @@ class FirestoreGateway {
       .deleteDocument(DeleteDocumentRequest()..name = path)
       .catchError(_handleError);
 
-  Stream<Document?> streamDocument(String path) {
+  Stream<DocumentUpdate> streamDocument(String path) {
     if (_listenStreamCache.containsKey(path)) {
       return _mapDocumentStream(_listenStreamCache[path]!.stream);
     }
@@ -204,7 +204,7 @@ class FirestoreGateway {
     throw e;
   }
 
-  Stream<List<Document>> _mapCollectionStream(
+  Stream<DocumentUpdate> _mapCollectionStream(
       _ListenStreamWrapper listenRequestStream) {
     return listenRequestStream.stream
         .where((response) =>
@@ -213,17 +213,16 @@ class FirestoreGateway {
             response.hasDocumentDelete())
         .map((response) {
       if (response.hasDocumentChange()) {
-        listenRequestStream.documentMap[response.documentChange.document.name] =
-            Document(this, response.documentChange.document);
+        return DocumentUpdate(DocumentAction.modify,
+            Document(this, response.documentChange.document), null);
       } else {
-        listenRequestStream.documentMap
-            .remove(response.documentDelete.document);
+        return DocumentUpdate(
+            DocumentAction.delete, null, response.documentDelete.document);
       }
-      return listenRequestStream.documentMap.values.toList();
     });
   }
 
-  Stream<Document?> _mapDocumentStream(
+  Stream<DocumentUpdate> _mapDocumentStream(
       Stream<ListenResponse> listenRequestStream) {
     return listenRequestStream
         .where((response) =>
@@ -231,8 +230,10 @@ class FirestoreGateway {
             response.hasDocumentRemove() ||
             response.hasDocumentDelete())
         .map((response) => response.hasDocumentChange()
-            ? Document(this, response.documentChange.document)
-            : null);
+            ? DocumentUpdate(DocumentAction.modify,
+                Document(this, response.documentChange.document), null)
+            : DocumentUpdate(
+                DocumentAction.delete, null, response.documentDelete.document));
   }
 }
 
@@ -249,15 +250,11 @@ class _ListenStreamWrapper {
   late StreamSubscription<ListenResponse>? _responseStreamSubscription;
   late StreamController<ListenRequest> _listenRequestStreamController;
   late StreamController<ListenResponse> _listenResponseStreamController;
-  late Map<String, Document> _documentMap;
 
   Stream<ListenResponse> get stream => _listenResponseStreamController.stream;
 
-  Map<String, Document> get documentMap => _documentMap;
-
   _ListenStreamWrapper.create(this._listenRequest, this.responseStreamFactory,
       {required this.onDone}) {
-    _documentMap = <String, Document>{};
     _listenResponseStreamController =
         StreamController<ListenResponse>.broadcast(
       onListen: () {
