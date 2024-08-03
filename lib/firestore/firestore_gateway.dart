@@ -124,7 +124,8 @@ class FirestoreGateway {
   }
 
   Future<void> deleteDocument(String path) => _client
-      .deleteDocument(DeleteDocumentRequest()..name = path)
+      .deleteDocument(DeleteDocumentRequest()..name = path,
+          options: CallOptions(metadata: {'x-goog-request-params': googParams}))
       .catchError(_handleError);
 
   Stream<DocumentUpdate> streamDocument(String path) {
